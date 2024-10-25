@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/danigilang17/go-rest-api/database"
-	"github.com/danigilang17/go-rest-api/models"
+	"github.com/danigilang17/tokoonline/database"
+	"github.com/danigilang17/tokoonline/models"
 	"github.com/gorilla/mux"
 )
 

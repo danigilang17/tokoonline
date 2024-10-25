@@ -4,8 +4,8 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/danigilang17/ptzmi/database"
-	"github.com/danigilang17/ptzmi/routes"
+	"github.com/danigilang17/tokoonline/database"
+	"github.com/danigilang17/tokoonline/routes"
 	"github.com/gorilla/mux"
 )
 
