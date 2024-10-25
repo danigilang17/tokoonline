@@ -34,7 +34,8 @@ func GetProducts(w http.ResponseWriter, r *http.Request) {
 	var products []models.Product
 	for rows.Next() {
 		var product models.Product
-		if err := rows.Scan(&product.ID, &product.Name, &product.Price, &product.Description); err != nil {
+		// Ubah tipe data sesuai dengan struktur tabel di database
+		if err := rows.Scan(&product.ID, &product.Name, &product.Description, &product.Price); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
