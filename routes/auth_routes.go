@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"net/http"
@@ -134,4 +135,14 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 	})
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Logged out successfully"})
+}
+
+func ParseToken(tokenStr string, claims *Claims) (*jwt.Token, error) {
+	return jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
+		return jwtKey, nil
+	})
+}
+
+func SetUserIDContext(ctx context.Context, userID int) context.Context {
+	return context.WithValue(ctx, "user_id", userID)
 }

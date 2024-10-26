@@ -34,13 +34,13 @@ func GetProducts(w http.ResponseWriter, r *http.Request) {
 	var products []models.Product
 	for rows.Next() {
 		var product models.Product
-		// Ubah tipe data sesuai dengan struktur tabel di database
-		if err := rows.Scan(&product.ID, &product.Name, &product.Description, &product.Price); err != nil {
+		if err := rows.Scan(&product.ID, &product.Name, &product.Price, &product.Description); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		products = append(products, product)
 	}
+
 	json.NewEncoder(w).Encode(products)
 }
 
@@ -58,10 +58,28 @@ func UpdateProduct(w http.ResponseWriter, r *http.Request) {
 func DeleteProduct(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
-	_, err := database.DB.Exec("DELETE FROM products WHERE id = ?", id)
+
+	// Eksekusi query DELETE
+	result, err := database.DB.Exec("DELETE FROM products WHERE id = ?", id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+
+	// Pastikan data berhasil dihapus
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if rowsAffected == 0 {
+		// Jika tidak ada data yang dihapus
+		http.Error(w, "Product not found", http.StatusNotFound)
+		return
+	}
+
+	// Kirimkan pesan konfirmasi dalam format JSON
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Product successfully deleted"})
 }
