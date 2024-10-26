@@ -1,35 +1,36 @@
+// middleware/jwt_auth.go
 package middleware
 
 import (
 	"net/http"
+	"strings"
 
-	"github.com/danigilang17/tokoonline/routes"
+	"github.com/golang-jwt/jwt/v4"
 )
 
-func JWTAuth(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		cookie, err := r.Cookie("token")
-		if err != nil {
-			if err == http.ErrNoCookie {
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
-				return
-			}
-			http.Error(w, err.Error(), http.StatusBadRequest)
+var JwtKey = []byte("your_secret_key") // Ganti dengan secret key Anda
+
+func JWTAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			http.Error(w, "Authorization header missing", http.StatusUnauthorized)
 			return
 		}
 
-		tokenStr := cookie.Value
-		claims := &routes.Claims{}
-		token, err := routes.ParseToken(tokenStr, claims)
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, http.ErrNoCookie
+			}
+			return JwtKey, nil
+		})
 
 		if err != nil || !token.Valid {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
 			return
 		}
 
-		// Meneruskan claims ke handler berikutnya jika diperlukan
-		r = r.WithContext(routes.SetUserIDContext(r.Context(), claims.UserID))
-
 		next.ServeHTTP(w, r)
-	}
+	})
 }

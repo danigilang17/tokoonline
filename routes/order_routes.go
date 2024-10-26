@@ -10,29 +10,53 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// CreateOrder creates a new order
+// CreateOrder handles the creation of a new order
 func CreateOrder(w http.ResponseWriter, r *http.Request) {
 	var order models.Order
 	json.NewDecoder(r.Body).Decode(&order)
-	result, err := database.DB.Exec("INSERT INTO orders (product_id) VALUES (?)", order.ProductID)
+
+	// Validate User ID
+	var userExists bool
+	err := database.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE id = ?)", order.UserID).Scan(&userExists)
+	if err != nil || !userExists {
+		http.Error(w, "Invalid user_id", http.StatusBadRequest)
+		return
+	}
+
+	// Retrieve product price
+	var price float64
+	err = database.DB.QueryRow("SELECT price FROM products WHERE id = ?", order.ProductID).Scan(&price)
+	if err != nil {
+		http.Error(w, "Invalid product_id", http.StatusBadRequest)
+		return
+	}
+
+	// Calculate total price
+	total := price * float64(order.Qty)
+
+	// Insert order with calculated total
+	result, err := database.DB.Exec("INSERT INTO orders (product_id, user_id, qty, status) VALUES (?, ?, ?, ?)", order.ProductID, order.UserID, order.Qty, "pending")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	id, err := result.LastInsertId()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	order.ID = int(id) // Ubah ini, asumsikan ID di struct Order bertipe int64
+
+	// Set total price in response
+	order.Total = total
 	order.Status = "pending"
+
+	id, _ := result.LastInsertId()
+	order.ID = int(id)
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(order)
 }
 
-// GetOrders retrieves all orders
 func GetOrders(w http.ResponseWriter, r *http.Request) {
-	rows, err := database.DB.Query("SELECT * FROM orders")
+	rows, err := database.DB.Query(`
+		SELECT orders.id, orders.product_id, orders.user_id, orders.qty, orders.status, products.price 
+		FROM orders 
+		INNER JOIN products ON orders.product_id = products.id
+	`)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -42,12 +66,18 @@ func GetOrders(w http.ResponseWriter, r *http.Request) {
 	var orders []models.Order
 	for rows.Next() {
 		var order models.Order
-		if err := rows.Scan(&order.ID, &order.ProductID, &order.Status, &order.CreatedAt); err != nil {
+		var price float64
+
+		if err := rows.Scan(&order.ID, &order.ProductID, &order.UserID, &order.Qty, &order.Status, &price); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+
+		// Calculate total price for each order
+		order.Total = price * float64(order.Qty)
 		orders = append(orders, order)
 	}
+
 	json.NewEncoder(w).Encode(orders)
 }
 
